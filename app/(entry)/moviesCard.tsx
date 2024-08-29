@@ -11,6 +11,7 @@ type MovieCardProps = {
 
 export const MoviesCard = ({ props }: { props: MovieCardProps }) => {
   const { Title, Poster } = props;
+  console.log(Title);
   return (
     <View style={styles.outerContainer}>
       <Text style={styles.title}>{Title}</Text>

@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import {
   Image,
   Text,
@@ -25,10 +25,11 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const [page, setPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
   const checkForError = (value: string): void => {
     if (value.length < 2) {
-      setError("Please Enter a valid Password");
+      setError("Please Enter a valid Input");
     } else {
       setError("");
     }
@@ -39,21 +40,41 @@ export default function HomePage() {
     setSearchString(value);
   };
 
-  const handleSubmit = async () => {
-    if (!searchString || error) {
-      return;
-    }
+  const fetchMovies = async (page: number, searchString: string) => {
     try {
       setLoading(true);
-      let response = await fetch(`${BASE_URL}&s=${searchString}`);
+      let response = await fetch(`${BASE_URL}&s=${searchString}&page=${page}`);
       setLoading(false);
       const finalResponse = await response.json();
-      setMovies(finalResponse?.Search);
+
+      if (finalResponse?.Response === "True") {
+        let finalMovies = [...movies, ...finalResponse?.Search];
+        const field = "imdbID";
+        finalMovies = Array.from(
+          new Set(finalMovies.map((ele) => ele[field]))
+        ).map((value) => finalMovies.find((ele) => ele[field] == value));
+        setMovies(finalMovies);
+        setTotalResults(Number(finalResponse?.totalResults));
+      }
     } catch (error) {
       console.log(error, "error");
     }
   };
+  const handleSubmit = async () => {
+    if (!searchString || error) {
+      return;
+    }
+    fetchMovies(page, searchString);
+  };
 
+  useEffect(() => {
+    if (page > 1 && page * 10 <= totalResults) {
+      fetchMovies(page, searchString);
+    }
+  }, [page]);
+
+  console.log(page, "page");
+  console.log(movies, "movies");
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Search Movies</Text>
@@ -61,6 +82,12 @@ export default function HomePage() {
         style={styles.inputField}
         value={searchString}
         onChangeText={handleChange}
+        onKeyPress={(keyBoardEvent) => {
+          if (keyBoardEvent.key === "Enter") {
+            keyBoardEvent.preventDefault();
+            handleSubmit();
+          }
+        }}
       />
       <View style={styles.btnContainer}>
         <Button
@@ -69,10 +96,15 @@ export default function HomePage() {
         ></Button>
       </View>
       {error.length > 0 && <Text style={styles.error}>{error}</Text>}
+
       <FlatList
         data={movies}
-        keyExtractor={(item) => item.Title}
+        keyExtractor={(item, index) => item.Poster}
         renderItem={({ item }) => <MoviesCard props={{ ...item }} />}
+        onEndReached={() => {
+          setPage((prev) => prev + 1);
+        }}
+        onEndReachedThreshold={0.1}
       />
     </View>
   );
